@@ -35,6 +35,47 @@ It combines a trained ML model with a Flask backend and an interactive frontend 
 
 ---
 
+##  System Architecture
+
+```id="arch1"
+        ┌──────────────────────┐
+        │      User (UI)       │
+        │  (Browser Interface)│
+        └─────────┬────────────┘
+                  │
+                  ▼
+        ┌──────────────────────┐
+        │   Frontend (HTML/CSS/JS)
+        │   - Form Input
+        │   - Fetch API
+        └─────────┬────────────┘
+                  │ HTTP Request (/predict)
+                  ▼
+        ┌──────────────────────┐
+        │     Flask Backend    │
+        │   (app.py)           │
+        │ - Routing            │
+        │ - Data Processing    │
+        └─────────┬────────────┘
+                  │
+                  ▼
+        ┌──────────────────────┐
+        │  ML Model (.pkl)     │
+        │ Linear Regression    │
+        └─────────┬────────────┘
+                  │
+                  ▼
+        ┌──────────────────────┐
+        │ Prediction Response  │
+        └─────────┬────────────┘
+                  │
+                  ▼
+        ┌──────────────────────┐
+        │  UI Displays Result  │
+        └──────────────────────┘
+```
+
+---
 
 ##  Project Structure
 
@@ -131,8 +172,3 @@ http://127.0.0.1:5000/
 
   * Predicted Car Price (₹)
 
-
-
-
-
----
