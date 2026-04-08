@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aero Velocity | Precision Car Valuation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="nav-logo">Aero Velocity</div>
+            <div class="nav-links">
+                <a href="#" class="active">Valuation</a>
+
+            </div>
+            <div class="nav-icons">
+                <i data-lucide="user"></i>
+                <i data-lucide="settings"></i>
+            </div>
+        </nav>
+
+        <!-- Main Dashboard Grid -->
+        <main class="main-grid">
+            <!-- Left Config Panel -->
+            <aside class="config-panel">
+                <h1 class="panel-title">Precision <span>Valuation</span></h1>
+                <p class="panel-subtitle">Real-time market intelligence for your vehicle.</p>
+
+                <form id="predictionForm">
+                    <div class="form-group">
+                        <label>Select Manufacturer</label>
+                        <select id="company" name="company" required onchange="load_car_models(this.value)">
+                            <option value="" disabled selected>Select Company</option>
+                            {% for company in companies %}
+                            <option value="{{ company }}">{{ company }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Specific Model</label>
+                        <select id="car_model" name="car_model" required>
+                            <option value="" disabled selected>Select Model</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Year</label>
+                            <select id="year" name="year" required>
+                                <option value="" disabled selected>Year</option>
+                                {% for y in year %}
+                                <option value="{{ y }}">{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fuel Type</label>
+                            <select id="fuel_type" name="fuel_type" required>
+                                <option value="" disabled selected>Fuel</option>
+                                {% for fuel in fuel_type %}
+                                <option value="{{ fuel }}">{{ fuel }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Kilometers Driven</label>
+                        <input type="number" id="kilo_driven" name="kilo_driven" placeholder="e.g. 15000" required>
+                    </div>
+
+                    <button type="button" class="btn-predict" onclick="send_data()">
+                        Refresh Valuation <i data-lucide="zap"></i>
+                    </button>
+                </form>
+
+                <div id="status" style="margin-top: 1rem; font-size: 0.8rem; color: var(--primary); display: none;">
+                    Processing market data...
+                </div>
+            </aside>
+
+            <!-- Right Dashboard Content -->
+            <section class="dashboard-content">
+                <!-- Main Value Display -->
+                <div class="value-display-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <span class="card-label">Estimated Market Value</span>
+                            <h2 class="main-price" id="prediction_text">₹0</h2>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="card-label" style="font-size: 0.65rem; color: var(--text-dim);">Market
+                                Confidence</span>
+                            <div style="display: flex; gap: 3px; margin-top: 5px;">
+                                <div style="width: 4px; height: 12px; background: var(--primary); border-radius: 2px;">
+                                </div>
+                                <div style="width: 4px; height: 12px; background: var(--primary); border-radius: 2px;">
+                                </div>
+                                <div style="width: 4px; height: 12px; background: var(--primary); border-radius: 2px;">
+                                </div>
+                                <div
+                                    style="width: 4px; height: 12px; background: rgba(0,243,255,0.2); border-radius: 2px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-range-bar">
+                        <div class="range-progress" id="range_progress"></div>
+                        <div class="range-marker" id="range_marker" style="left: 70%;"></div>
+                    </div>
+
+                    <div class="range-labels">
+                        <div class="range-item">
+                            <label>Low Range</label>
+                            <span id="low_range">₹0</span>
+                        </div>
+                        <div class="range-item" style="text-align: center;">
+                            <label>Median Value</label>
+                            <span id="median_range">₹0</span>
+                        </div>
+                        <div class="range-item" style="text-align: right;">
+                            <label>Premium Peak</label>
+                            <span id="high_range">₹0</span>
+                        </div>
+                    </div>
+                </div>
+
+
+            </section>
+        </main>
+
+        <div class="floating-btn">
+            <i data-lucide="plus"></i>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Global car data from Jinja
+        const carData = {
+            {% for company in companies %}
+        "{{ company }}": [
+            {% for model in car_model %}
+        {% if company in model %}
+        "{{ model }}",
+            {% endif %}
+        {% endfor %}
+            ],
+        {% endfor %}
+        };
+
+        function load_car_models(company) {
+            const modelSelect = document.getElementById('car_model');
+            modelSelect.innerHTML = '<option value="" disabled selected>Select Model</option>';
+
+            if (carData[company]) {
+                carData[company].forEach(model => {
+                    const opt = document.createElement('option');
+                    opt.value = model;
+                    opt.innerHTML = model;
+                    modelSelect.appendChild(opt);
+                });
+            }
+            // Refresh custom dropdown for models
+            refreshCustomSelect(modelSelect);
+        }
+
+        /* Custom Dropdown Logic */
+        function initCustomSelect() {
+            const selects = document.querySelectorAll('select');
+            selects.forEach(sel => {
+                if (sel.parentElement.classList.contains('custom-select-container')) return;
+                createCustomSelect(sel);
+            });
+        }
+
+        function createCustomSelect(sel) {
+            const container = document.createElement('div');
+            container.className = 'custom-select-container';
+            sel.parentNode.insertBefore(container, sel);
+            container.appendChild(sel);
+            sel.classList.add('hidden-nav-select');
+
+            const selected = document.createElement('div');
+            selected.className = 'select-selected';
+            selected.innerHTML = sel.options[sel.selectedIndex].innerHTML;
+            container.appendChild(selected);
+
+            const items = document.createElement('div');
+            items.className = 'select-items select-hide';
+
+            for (let i = 0; i < sel.length; i++) {
+                const optDiv = document.createElement('div');
+                optDiv.innerHTML = sel.options[i].innerHTML;
+                if (i === sel.selectedIndex) optDiv.className = 'same-as-selected';
+                if (sel.options[i].disabled) optDiv.style.opacity = '0.5', optDiv.style.pointerEvents = 'none';
+
+                optDiv.addEventListener('click', function (e) {
+                    const s = this.parentNode.parentNode.getElementsByTagName('select')[0];
+                    const h = this.parentNode.previousSibling;
+                    for (let j = 0; j < s.length; j++) {
+                        if (s.options[j].innerHTML == this.innerHTML) {
+                            s.selectedIndex = j;
+                            h.innerHTML = this.innerHTML;
+                            const y = this.parentNode.getElementsByClassName('same-as-selected');
+                            for (let k = 0; k < y.length; k++) y[k].removeAttribute('class');
+                            this.className = 'same-as-selected';
+                            s.dispatchEvent(new Event('change'));
+                            break;
+                        }
+                    }
+                    h.click();
+                });
+                items.appendChild(optDiv);
+            }
+            container.appendChild(items);
+
+            selected.addEventListener('click', function (e) {
+                e.stopPropagation();
+                closeAllSelect(this);
+                this.nextSibling.classList.toggle('select-hide');
+                this.classList.toggle('select-arrow-active');
+            });
+        }
+
+        function refreshCustomSelect(sel) {
+            const container = sel.parentElement;
+            if (!container.classList.contains('custom-select-container')) return;
+
+            const selected = container.querySelector('.select-selected');
+            const items = container.querySelector('.select-items');
+
+            selected.innerHTML = sel.options[sel.selectedIndex].innerHTML;
+            items.innerHTML = '';
+
+            for (let i = 0; i < sel.length; i++) {
+                const optDiv = document.createElement('div');
+                optDiv.innerHTML = sel.options[i].innerHTML;
+                if (i === sel.selectedIndex) optDiv.className = 'same-as-selected';
+                if (sel.options[i].disabled) optDiv.style.opacity = '0.5', optDiv.style.pointerEvents = 'none';
+
+                optDiv.addEventListener('click', function (e) {
+                    const s = this.parentNode.parentNode.getElementsByTagName('select')[0];
+                    const h = this.parentNode.previousSibling;
+                    for (let j = 0; j < s.length; j++) {
+                        if (s.options[j].innerHTML == this.innerHTML) {
+                            s.selectedIndex = j;
+                            h.innerHTML = this.innerHTML;
+                            const y = this.parentNode.getElementsByClassName('same-as-selected');
+                            for (let k = 0; k < y.length; k++) y[k].removeAttribute('class');
+                            this.className = 'same-as-selected';
+                            s.dispatchEvent(new Event('change'));
+                            break;
+                        }
+                    }
+                    h.click();
+                });
+                items.appendChild(optDiv);
+            }
+        }
+
+        function closeAllSelect(elmnt) {
+            const x = document.getElementsByClassName('select-items');
+            const y = document.getElementsByClassName('select-selected');
+            const arrNo = [];
+            for (let i = 0; i < y.length; i++) {
+                if (elmnt == y[i]) {
+                    arrNo.push(i);
+                } else {
+                    y[i].classList.remove('select-arrow-active');
+                }
+            }
+            for (let i = 0; i < x.length; i++) {
+                if (arrNo.indexOf(i)) {
+                    x[i].classList.add('select-hide');
+                }
+            }
+        }
+
+        document.addEventListener('click', closeAllSelect);
+        window.addEventListener('DOMContentLoaded', initCustomSelect);
+
+        function send_data() {
+            const form = document.getElementById('predictionForm');
+            const fd = new FormData(form);
+            const status = document.getElementById('status');
+            const predictionText = document.getElementById('prediction_text');
+
+            // Show loading state
+            status.style.display = 'block';
+            predictionText.style.opacity = '0.5';
+
+            fetch('/predict', {
+                method: 'POST',
+                body: fd
+            })
+                .then(response => response.text())
+                .then(data => {
+                    const price = parseFloat(data);
+                    const formattedPrice = "₹" + price.toLocaleString('en-IN');
+
+                    // Update UI
+                    predictionText.innerHTML = formattedPrice;
+                    document.getElementById('median_range').innerHTML = formattedPrice;
+
+                    // Generate fake range for UI aesthetic
+                    const low = Math.round(price * 0.9);
+                    const high = Math.round(price * 1.15);
+                    document.getElementById('low_range').innerHTML = "₹" + low.toLocaleString('en-IN');
+                    document.getElementById('high_range').innerHTML = "₹" + high.toLocaleString('en-IN');
+
+                    // Animate progress bar slightly
+                    const randomPos = 60 + Math.random() * 20;
+                    document.getElementById('range_marker').style.left = randomPos + "%";
+                    document.getElementById('range_progress').style.width = randomPos + "%";
+
+                    predictionText.style.opacity = '1';
+                    status.style.display = 'none';
+
+                    // Re-trigger icons if any new icons appear (optional)
+                    lucide.createIcons();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    status.innerHTML = "Error fetching prediction.";
+                });
+        }
+    </script>
+</body>
+
+</html>
